@@ -33,13 +33,3 @@ def generate_time_series(key,
         w = numpyro.sample("w", dist.Bernoulli(0.1*jnp.ones((1, X.shape[1]))).to_event(1), rng_key=sub_key)
     return jnp.einsum("ij,bj->bi", X, w), w
 
-
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    key = jax.random.PRNGKey(2137)
-    A = get_generator()
-    Y, w = generate_time_series(key, A)
-    print(Y.shape)
-    plt.plot(list(range(300)), list(Y[0]))
-    plt.savefig("test.png")
-
