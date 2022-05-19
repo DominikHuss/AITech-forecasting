@@ -10,7 +10,9 @@ def get_generator(max_length: int = 300,
                          max_fourier_order: int = 3,
                          max_period_number: int = 5,
                          random_periods: bool = False,
+                         random_changepoints: bool = False,
                          key: Optional[jnp.array] = None):
+    # Seasonality
     x = jnp.arange(max_length)
     o = jnp.arange(1, max_fourier_order+1)
     if random_periods:
@@ -22,8 +24,29 @@ def get_generator(max_length: int = 300,
         
     arg = 2*jnp.pi*o[:, jnp.newaxis]/p
     arg = x[:, jnp.newaxis]*arg.reshape(arg.size)
-    X = jnp.concatenate([jnp.sin(arg), jnp.cos(arg)], axis=-1)
-    return X
+    S_X = jnp.concatenate([jnp.sin(arg), jnp.cos(arg)], axis=-1)
+
+    # Trend
+    T = max_length
+    if random_changepoints:
+        key, sub_key = jax.random.split(key)
+        S = numpyro.sample("S", dist.Uniform(low=1, high=10).astype(int), rng_key=sub_key)
+    else:
+        S = 50
+    step = T/(S+1)
+    s = jnp.arange(start=0, stop=T, step=step).astype(int)[1:]
+    f = jax.vmap(lambda x: jnp.where(jnp.arange(T) >= x, jnp.ones(T), jnp.zeros(T)), 0, 0)
+    A = f(s).T
+
+    t = jnp.arange(T)
+    k = t[:, jnp.newaxis]
+    m = jnp.ones_like(k)
+
+    #ro = jnp.concatenate((ro, jnp.array([1]), jnp.array([1])))
+
+    A = A*(t[:, jnp.newaxis]-s)/T
+    T_X = jnp.concatenate((A, k, m), axis=1)
+    return key, jnp.concatenate((S_X, T_X), axis=1)
 
 def generate_time_series(key, 
                          X, 
