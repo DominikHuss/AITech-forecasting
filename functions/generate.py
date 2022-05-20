@@ -42,11 +42,15 @@ def get_generator(max_length: int = 300,
     k = t[:, jnp.newaxis]
     m = jnp.ones_like(k)
 
-    #ro = jnp.concatenate((ro, jnp.array([1]), jnp.array([1])))
-
     A = A*(t[:, jnp.newaxis]-s)/T
     T_X = jnp.concatenate((A, k, m), axis=1)
-    return key, jnp.concatenate((S_X, T_X), axis=1)
+
+    # Holidays
+    h_key = jax.random.PRNGKey(392586)
+    D = jax.random.uniform(h_key, (50,), minval=0, maxval=500).astype(int)
+    H_X = jax.nn.one_hot(D, 500)[:, :max_length].T
+
+    return key, jnp.concatenate((S_X, T_X, H_X), axis=1)
 
 def generate_time_series(key, 
                          X, 
@@ -54,5 +58,6 @@ def generate_time_series(key,
     with numpyro.plate("B", batch_size):
         key, sub_key = jax.random.split(key)
         w = numpyro.sample("w", dist.Bernoulli(0.1*jnp.ones((1, X.shape[1]))).to_event(1), rng_key=sub_key)
+        w_scale = numpyro.sample("w_scale", dist.Normal(jnp.zeros((1, X.shape[1]))).to_event(1), rng_key=key)
     return jnp.einsum("ij,bj->bi", X, w), w
 
